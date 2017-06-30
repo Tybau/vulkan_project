@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <functional>
 #include <vector>
+#include <map>
 
 const int WIDTH = 800;
 const int HEIGHT = 600;
@@ -22,6 +23,14 @@ const std::vector<const char *> validationLayers = {
 #else
     const bool enableValidationLayers = true;
 #endif
+
+struct QueueFamilyIndices {
+    int graphicsFamily = -1;
+
+    bool isComplete() {
+        return graphicsFamily >= 0;
+    }
+};
 
 class App
 {
@@ -41,6 +50,10 @@ private:
 	/* VK methods */
 	void createInstance();
 	bool checkValidationLayerSupport ();
+	void setupDebugCallback ();
+	void pickPhysicalDevice ();
+
+	/* VK validation layers methods */
 	std::vector<const char *> getRequiredExtensions ();
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback (
 		    VkDebugReportFlagsEXT flags,
@@ -51,7 +64,6 @@ private:
 		    const char* layerPrefix,
 		    const char* msg,
 		    void* userData);
-	void setupDebugCallback ();
 	VkResult CreateDebugReportCallbackEXT (
 			VkInstance instance,
 			const VkDebugReportCallbackCreateInfoEXT* pCreateInfo,
@@ -61,4 +73,8 @@ private:
 			VkInstance instance,
 			VkDebugReportCallbackEXT callback,
 			const VkAllocationCallbacks* pAllocator);
+
+	/* PhysicalDevices methods */
+	bool isDeviceSuitable (VkPhysicalDevice device);
+	QueueFamilyIndices findQueueFamilies (VkPhysicalDevice device);
 };
