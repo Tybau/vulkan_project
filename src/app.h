@@ -38,6 +38,9 @@ private:
 	GLFWwindow *window;
 	VkInstance instance;
 	VkDebugReportCallbackEXT callback;
+	VkPhysicalDevice physicalDevice;
+	VkDevice device;
+	VkQueue graphicsQueue;
 public:
 	void run ();
 
@@ -52,6 +55,7 @@ private:
 	bool checkValidationLayerSupport ();
 	void setupDebugCallback ();
 	void pickPhysicalDevice ();
+	void createLogicalDevice ();
 
 	/* VK validation layers methods */
 	std::vector<const char *> getRequiredExtensions ();
