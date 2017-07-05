@@ -11,6 +11,7 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <algorithm>
 
 const int WIDTH = 800;
 const int HEIGHT = 600;
@@ -19,19 +20,31 @@ const std::vector<const char *> validationLayers = {
 	"VK_LAYER_LUNARG_standard_validation"
 };
 
+const std::vector<const char*> deviceExtensions = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
 #ifdef NDEBUG
     const bool enableValidationLayers = false;
 #else
     const bool enableValidationLayers = true;
 #endif
 
-struct QueueFamilyIndices {
+struct QueueFamilyIndices
+{
     int graphicsFamily = -1;
 	int presentFamily = -1;
 
     bool isComplete() {
         return graphicsFamily >= 0 && presentFamily >= 0;
     }
+};
+
+struct SwapChainSupportDetails
+{
+    VkSurfaceCapabilitiesKHR capabilities;
+    std::vector<VkSurfaceFormatKHR> formats;
+    std::vector<VkPresentModeKHR> presentModes;
 };
 
 class App
@@ -44,6 +57,10 @@ private:
 	VkDevice device;
 	VkSurfaceKHR surface;
 	VkQueue presentQueue;
+	VkSwapchainKHR swapChain;
+	std::vector<VkImage> swapChainImages;
+	VkFormat swapChainImageFormat;
+	VkExtent2D swapChainExtent;
 
 public:
 	void run ();
@@ -61,6 +78,7 @@ private:
 	void pickPhysicalDevice ();
 	void createLogicalDevice ();
 	void createSurface ();
+	void createSwapChain ();
 
 	/* VK validation layers methods */
 	std::vector<const char *> getRequiredExtensions ();
@@ -86,4 +104,11 @@ private:
 	/* PhysicalDevices methods */
 	bool isDeviceSuitable (VkPhysicalDevice device);
 	QueueFamilyIndices findQueueFamilies (VkPhysicalDevice device);
+
+	/* Swap Chain methods */
+	bool checkDeviceExtensionSupport (VkPhysicalDevice device);
+	SwapChainSupportDetails querySwapChainSupport (VkPhysicalDevice device);
+	VkSurfaceFormatKHR chooseSwapSurfaceFormat (const std::vector<VkSurfaceFormatKHR>& availableFormats);
+	VkPresentModeKHR chooseSwapPresentMode (const std::vector<VkPresentModeKHR> availablePresentModes);
+	VkExtent2D chooseSwapExtent (const VkSurfaceCapabilitiesKHR& capabilities);
 };
