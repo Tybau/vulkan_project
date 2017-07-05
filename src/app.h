@@ -12,6 +12,7 @@
 #include <map>
 #include <set>
 #include <algorithm>
+#include <fstream>
 
 const int WIDTH = 800;
 const int HEIGHT = 600;
@@ -62,6 +63,11 @@ private:
 	VkFormat swapChainImageFormat;
 	VkExtent2D swapChainExtent;
 	std::vector<VkImageView> swapChainImageViews;
+	VkShaderModule vertShaderModule;
+	VkShaderModule fragShaderModule;
+	VkRenderPass renderPass;
+	VkPipelineLayout pipelineLayout;
+	VkPipeline graphicsPipeline;
 
 public:
 	void run ();
@@ -81,6 +87,8 @@ private:
 	void createSurface ();
 	void createSwapChain ();
 	void createImageViews ();
+	void createGraphicsPipeline ();
+	void createRenderPass ();
 
 	/* VK validation layers methods */
 	std::vector<const char *> getRequiredExtensions ();
@@ -113,4 +121,8 @@ private:
 	VkSurfaceFormatKHR chooseSwapSurfaceFormat (const std::vector<VkSurfaceFormatKHR>& availableFormats);
 	VkPresentModeKHR chooseSwapPresentMode (const std::vector<VkPresentModeKHR> availablePresentModes);
 	VkExtent2D chooseSwapExtent (const VkSurfaceCapabilitiesKHR& capabilities);
+
+	/* Graphics Pipeline methods */
+	static std::vector<char> readFile (const std::string& filename);
+	VkShaderModule createShaderModule (const std::vector<char>& code);
 };
