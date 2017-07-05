@@ -25,6 +25,7 @@ void App::initVulkan ()
 {
 	createInstance();
 	setupDebugCallback();
+	createSurface();
 	pickPhysicalDevice();
 	createLogicalDevice();
 }
@@ -41,6 +42,8 @@ void App::cleanup ()
 {
 	vkDestroyDevice(device, nullptr);
 	DestroyDebugReportCallbackEXT(instance, callback, nullptr);
+
+	vkDestroySurfaceKHR(instance, surface, nullptr);
 	vkDestroyInstance(instance, nullptr);
 
 	glfwDestroyWindow(window);
@@ -169,32 +172,46 @@ void App::pickPhysicalDevice ()
 
 	if (physicalDevice == VK_NULL_HANDLE)
 	    throw std::runtime_error("failed to find a suitable GPU!");
+
+	VkPhysicalDeviceProperties deviceProperties;
+	vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
+	std::cout << deviceProperties.deviceName << std::endl;
 }
 
 void App::createLogicalDevice ()
 {
 	QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
-	VkDeviceQueueCreateInfo queueCreateInfo = {};
+	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+	std::set<int> uniqueQueueFamilies = {indices.graphicsFamily, indices.presentFamily};
+
+	float queuePriority = 1.0f;
+	for (int queueFamily : uniqueQueueFamilies)
+	{
+	    VkDeviceQueueCreateInfo queueCreateInfo = {};
+	    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+	    queueCreateInfo.queueFamilyIndex = queueFamily;
+	    queueCreateInfo.queueCount = 1;
+	    queueCreateInfo.pQueuePriorities = &queuePriority;
+	    queueCreateInfos.push_back(queueCreateInfo);
+	}
+
+	/*VkDeviceQueueCreateInfo queueCreateInfo = {};
 	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 	queueCreateInfo.queueFamilyIndex = indices.graphicsFamily;
 	queueCreateInfo.queueCount = 1;
 
 	float queuePriority = 1.0f;
-	queueCreateInfo.pQueuePriorities = &queuePriority;
-
+	queueCreateInfo.pQueuePriorities = &queuePriority;*/
 
 	VkPhysicalDeviceFeatures deviceFeatures = {};
 
 	VkDeviceCreateInfo createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	createInfo.pQueueCreateInfos = &queueCreateInfo;
-	createInfo.queueCreateInfoCount = 1;
-
+	createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+	createInfo.pQueueCreateInfos = queueCreateInfos.data();
 	createInfo.pEnabledFeatures = &deviceFeatures;
-
 	createInfo.enabledExtensionCount = 0;
-
 	createInfo.enabledLayerCount = 0;
 
 	if (enableValidationLayers)
@@ -206,19 +223,27 @@ void App::createLogicalDevice ()
 	if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS)
     	throw std::runtime_error("failed to create logical device!");
 
-	vkGetDeviceQueue(device, indices.graphicsFamily, 0, &graphicsQueue);
+	vkGetDeviceQueue(device, indices.graphicsFamily, 0, &presentQueue);
+}
+
+void App::createSurface ()
+{
+	if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS)
+	{
+        throw std::runtime_error("failed to create window surface!");
+    }
 }
 
 /* VK validation layers methods */
 
-VKAPI_ATTR VkBool32 VKAPI_CALL App::debugCallback(
+VKAPI_ATTR VkBool32 VKAPI_CALL App::debugCallback (
 	    VkDebugReportFlagsEXT flags,
 	    VkDebugReportObjectTypeEXT objType,
 	    uint64_t obj,
 	    size_t location,
 	    int32_t code,
-	    const char* layerPrefix,
-	    const char* msg,
+	    const char *layerPrefix,
+	    const char *msg,
 	    void* userData)
 {
     std::cerr << "validation layer: " << msg << std::endl;
@@ -228,9 +253,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL App::debugCallback(
 
 VkResult App::CreateDebugReportCallbackEXT (
 		VkInstance instance,
-		const VkDebugReportCallbackCreateInfoEXT* pCreateInfo,
-		const VkAllocationCallbacks* pAllocator,
-		VkDebugReportCallbackEXT* pCallback)
+		const VkDebugReportCallbackCreateInfoEXT *pCreateInfo,
+		const VkAllocationCallbacks *pAllocator,
+		VkDebugReportCallbackEXT *pCallback)
 {
     auto func = (PFN_vkCreateDebugReportCallbackEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
     if (func != nullptr)
@@ -241,7 +266,7 @@ VkResult App::CreateDebugReportCallbackEXT (
 void App::DestroyDebugReportCallbackEXT (
 		VkInstance instance,
 		VkDebugReportCallbackEXT callback,
-		const VkAllocationCallbacks* pAllocator)
+		const VkAllocationCallbacks *pAllocator)
 {
     auto func = (PFN_vkDestroyDebugReportCallbackEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugReportCallbackEXT");
     if (func != nullptr)
@@ -279,6 +304,12 @@ QueueFamilyIndices App::findQueueFamilies (VkPhysicalDevice device)
 	{
 	    if (queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
 	        indices.graphicsFamily = i;
+
+		VkBool32 presentSupport = false;
+		vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
+
+		if (queueFamily.queueCount > 0 && presentSupport)
+	    	indices.presentFamily = i;
 
 	    if (indices.isComplete())
 	        break;

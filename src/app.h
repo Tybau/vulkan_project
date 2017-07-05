@@ -10,6 +10,7 @@
 #include <functional>
 #include <vector>
 #include <map>
+#include <set>
 
 const int WIDTH = 800;
 const int HEIGHT = 600;
@@ -26,9 +27,10 @@ const std::vector<const char *> validationLayers = {
 
 struct QueueFamilyIndices {
     int graphicsFamily = -1;
+	int presentFamily = -1;
 
     bool isComplete() {
-        return graphicsFamily >= 0;
+        return graphicsFamily >= 0 && presentFamily >= 0;
     }
 };
 
@@ -40,7 +42,9 @@ private:
 	VkDebugReportCallbackEXT callback;
 	VkPhysicalDevice physicalDevice;
 	VkDevice device;
-	VkQueue graphicsQueue;
+	VkSurfaceKHR surface;
+	VkQueue presentQueue;
+
 public:
 	void run ();
 
@@ -51,11 +55,12 @@ private:
 	void cleanup ();
 
 	/* VK methods */
-	void createInstance();
+	void createInstance ();
 	bool checkValidationLayerSupport ();
 	void setupDebugCallback ();
 	void pickPhysicalDevice ();
 	void createLogicalDevice ();
+	void createSurface ();
 
 	/* VK validation layers methods */
 	std::vector<const char *> getRequiredExtensions ();
