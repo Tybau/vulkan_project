@@ -64,8 +64,6 @@ private:
 	VkFormat swapChainImageFormat;
 	VkExtent2D swapChainExtent;
 	std::vector<VkImageView> swapChainImageViews;
-	VkShaderModule vertShaderModule;
-	VkShaderModule fragShaderModule;
 	VkRenderPass renderPass;
 	VkPipelineLayout pipelineLayout;
 	VkPipeline graphicsPipeline;
@@ -74,6 +72,14 @@ private:
 	std::vector<VkCommandBuffer> commandBuffers;
 	VkSemaphore imageAvailableSemaphore;
 	VkSemaphore renderFinishedSemaphore;
+
+	inline static void onWindowResized (GLFWwindow *window, int width, int height)
+	{
+		if(width == 0 || height == 0) return;
+
+		App* app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
+		app->recreateSwapChain();
+	}
 
 public:
 	void run ();
@@ -101,17 +107,11 @@ private:
 	void createCommandBuffers ();
     void createSemaphores ();
 
+	void cleanupSwapChain ();
+	void recreateSwapChain ();
+
 	/* VK validation layers methods */
 	std::vector<const char *> getRequiredExtensions ();
-	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback (
-		    VkDebugReportFlagsEXT flags,
-		    VkDebugReportObjectTypeEXT objType,
-		    uint64_t obj,
-		    size_t location,
-		    int32_t code,
-		    const char* layerPrefix,
-		    const char* msg,
-		    void* userData);
 	VkResult CreateDebugReportCallbackEXT (
 			VkInstance instance,
 			const VkDebugReportCallbackCreateInfoEXT* pCreateInfo,
@@ -134,6 +134,5 @@ private:
 	VkExtent2D chooseSwapExtent (const VkSurfaceCapabilitiesKHR& capabilities);
 
 	/* Graphics Pipeline methods */
-	static std::vector<char> readFile (const std::string& filename);
 	VkShaderModule createShaderModule (const std::vector<char>& code);
 };

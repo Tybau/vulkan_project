@@ -1,5 +1,44 @@
 #include "app.h"
 
+
+/* Static functions */
+
+
+static std::vector<char> readFile (const std::string& filename)
+{
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+    if (!file.is_open())
+        throw std::runtime_error("failed to open file!");
+
+	size_t fileSize = (size_t) file.tellg();
+	std::vector<char> buffer(fileSize);
+
+	file.seekg(0);
+	file.read(buffer.data(), fileSize);
+
+	file.close();
+
+	return buffer;
+}
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback (
+	    VkDebugReportFlagsEXT flags,
+	    VkDebugReportObjectTypeEXT objType,
+	    uint64_t obj,
+	    size_t location,
+	    int32_t code,
+	    const char *layerPrefix,
+	    const char *msg,
+	    void* userData)
+{
+    std::cerr << "validation layer: " << msg << std::endl;
+
+    return VK_FALSE;
+}
+
+/* App class */
+
 void App::run ()
 {
 	initWindow();
@@ -16,6 +55,11 @@ void App::initWindow ()
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
 	window = glfwCreateWindow(WIDTH, HEIGHT, (!enableValidationLayers) ? "Vulkan" :  "[DEBUG] Vulkan", nullptr, nullptr);
+
+	glfwSetWindowSizeLimits(window, 50, 50, 1920, 1080);
+
+	glfwSetWindowUserPointer(window, this);
+	glfwSetWindowSizeCallback(window, App::onWindowResized);
 }
 
 void App::initVulkan ()
@@ -48,25 +92,16 @@ void App::mainLoop ()
 
 void App::cleanup ()
 {
-	vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
-	vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
-
-	for (size_t i = 0; i < swapChainFramebuffers.size(); i++)
-        vkDestroyFramebuffer(device, swapChainFramebuffers[i], nullptr);
-
-	vkDestroyCommandPool(device, commandPool, nullptr);
+	cleanupSwapChain();
 
 	vkDestroyPipeline(device, graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 	vkDestroyRenderPass(device, renderPass, nullptr);
 
-	for (size_t i = 0; i < swapChainImageViews.size(); i++)
-        vkDestroyImageView(device, swapChainImageViews[i], nullptr);
+	vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
+	vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
 
-	vkDestroySwapchainKHR(device, swapChain, nullptr);
-
-	vkDestroyShaderModule(device, fragShaderModule, nullptr);
-    vkDestroyShaderModule(device, vertShaderModule, nullptr);
+	vkDestroyCommandPool(device, commandPool, nullptr);
 
 	vkDestroyDevice(device, nullptr);
 	DestroyDebugReportCallbackEXT(instance, callback, nullptr);
@@ -81,7 +116,15 @@ void App::cleanup ()
 void App::drawFrame ()
 {
 	uint32_t imageIndex;
-    vkAcquireNextImageKHR(device, swapChain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(device, swapChain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+
+	if (result == VK_ERROR_OUT_OF_DATE_KHR)
+	{
+	    recreateSwapChain();
+	    return;
+	}
+	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+	    throw std::runtime_error("failed to acquire swap chain image!");
 
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -210,7 +253,7 @@ void App::setupDebugCallback ()
 	VkDebugReportCallbackCreateInfoEXT createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
 	createInfo.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
-	createInfo.pfnCallback = debugCallback;
+	createInfo.pfnCallback = debugCallback;//////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	if (CreateDebugReportCallbackEXT(instance, &createInfo, nullptr, &callback) != VK_SUCCESS)
 	    throw std::runtime_error("failed to set up debug callback!");
@@ -386,8 +429,8 @@ void App::createGraphicsPipeline ()
 	std::vector<char> vertShaderCode = readFile("assets/shaders/vert.spv");
     std::vector<char> fragShaderCode = readFile("assets/shaders/frag.spv");
 
-	vertShaderModule = createShaderModule(vertShaderCode);
-	fragShaderModule = createShaderModule(fragShaderCode);
+	VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
+	VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
 
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
 	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -505,7 +548,7 @@ void App::createGraphicsPipeline ()
 	pipelineInfo.pMultisampleState = &multisampling;
 	pipelineInfo.pDepthStencilState = nullptr;
 	pipelineInfo.pColorBlendState = &colorBlending;
-	pipelineInfo.pDynamicState = nullptr;
+	pipelineInfo.pDynamicState = &dynamicState;
 	pipelineInfo.layout = pipelineLayout;
 	pipelineInfo.renderPass = renderPass;
 	pipelineInfo.subpass = 0;
@@ -514,6 +557,9 @@ void App::createGraphicsPipeline ()
 
 	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS)
     	throw std::runtime_error("failed to create graphics pipeline!");
+
+	vkDestroyShaderModule(device, vertShaderModule, nullptr);
+	vkDestroyShaderModule(device, fragShaderModule, nullptr);
 }
 
 void App::createRenderPass ()
@@ -629,6 +675,20 @@ void App::createCommandBuffers ()
 		renderPassInfo.clearValueCount = 1;
 		renderPassInfo.pClearValues = &clearColor;
 
+		VkViewport viewport = {};
+		viewport.x = 0.0f;
+		viewport.y = 0.0f;
+		viewport.width = (float) swapChainExtent.width;
+		viewport.height = (float) swapChainExtent.height;
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+		vkCmdSetViewport(commandBuffers[i], (uint32_t)0, (uint32_t)1, &viewport);
+
+		VkRect2D scissor = {};
+		scissor.offset = {0, 0};
+		scissor.extent = swapChainExtent;
+		vkCmdSetScissor(commandBuffers[i], (uint32_t)0, (uint32_t)1, &scissor);
+
 		vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 		vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
@@ -651,22 +711,30 @@ void App::createSemaphores ()
     	throw std::runtime_error("failed to create semaphores!");
 }
 
-/* VK validation layers methods */
-
-VKAPI_ATTR VkBool32 VKAPI_CALL App::debugCallback (
-	    VkDebugReportFlagsEXT flags,
-	    VkDebugReportObjectTypeEXT objType,
-	    uint64_t obj,
-	    size_t location,
-	    int32_t code,
-	    const char *layerPrefix,
-	    const char *msg,
-	    void* userData)
+void App::recreateSwapChain ()
 {
-    std::cerr << "validation layer: " << msg << std::endl;
+	cleanupSwapChain();
 
-    return VK_FALSE;
+	createSwapChain();
+	createImageViews();
+	createFramebuffers();
+	createCommandBuffers();
 }
+
+void App::cleanupSwapChain ()
+{
+	for(size_t i = 0; i < swapChainFramebuffers.size(); i++)
+		vkDestroyFramebuffer(device, swapChainFramebuffers[i], nullptr);
+
+	vkFreeCommandBuffers(device, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+
+	for(size_t i = 0; i < swapChainImageViews.size(); i++)
+		vkDestroyImageView(device, swapChainImageViews[i], nullptr);
+
+	vkDestroySwapchainKHR(device, swapChain, nullptr);
+}
+
+/* VK validation layers methods */
 
 VkResult App::CreateDebugReportCallbackEXT (
 		VkInstance instance,
@@ -833,7 +901,10 @@ VkExtent2D App::chooseSwapExtent (const VkSurfaceCapabilitiesKHR& capabilities)
     }
 	else
 	{
-        VkExtent2D actualExtent = {WIDTH, HEIGHT};
+		int width, height;
+		glfwGetWindowSize(window, &width, &height);
+
+        VkExtent2D actualExtent = {(uint32_t) width, (uint32_t) height};
 
         actualExtent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, actualExtent.width));
         actualExtent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, actualExtent.height));
@@ -843,24 +914,6 @@ VkExtent2D App::chooseSwapExtent (const VkSurfaceCapabilitiesKHR& capabilities)
 }
 
 /* Graphics Pipeline methods */
-
-std::vector<char> App::readFile (const std::string& filename)
-{
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-
-    if (!file.is_open())
-        throw std::runtime_error("failed to open file!");
-
-	size_t fileSize = (size_t) file.tellg();
-	std::vector<char> buffer(fileSize);
-
-	file.seekg(0);
-	file.read(buffer.data(), fileSize);
-
-	file.close();
-
-	return buffer;
-}
 
 VkShaderModule App::createShaderModule(const std::vector<char>& code)
 {
