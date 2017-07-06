@@ -10,9 +10,7 @@ FILES = main.cpp \
 
 OBJS = $(addprefix bin/,$(FILES:.cpp=.o))
 
-INCLUDES = -I includes/ -I $(VULKAN_SDK_INCLUDES)
-
-FLAGS = -std=c++11 -g -D DEBUG $(INCLUDES)
+FLAGS = -std=c++11 -g -D DEBUG
 LDFLAGS = -L $(VULKAN_SDK_LIBS) -lvulkan -L libs/ -lglfw3 -lGL -lm -ldl -lXinerama -lXrandr -lXi -lXcursor -lX11 -lXxf86vm -lpthread
 
 $(NAME):bin $(OBJS)
