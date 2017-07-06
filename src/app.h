@@ -25,7 +25,7 @@ const std::vector<const char*> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
-#ifdef NDEBUG
+#ifdef DEBUG
     const bool enableValidationLayers = false;
 #else
     const bool enableValidationLayers = true;
@@ -57,6 +57,7 @@ private:
 	VkPhysicalDevice physicalDevice;
 	VkDevice device;
 	VkSurfaceKHR surface;
+	VkQueue graphicsQueue;
 	VkQueue presentQueue;
 	VkSwapchainKHR swapChain;
 	std::vector<VkImage> swapChainImages;
@@ -68,6 +69,11 @@ private:
 	VkRenderPass renderPass;
 	VkPipelineLayout pipelineLayout;
 	VkPipeline graphicsPipeline;
+	std::vector<VkFramebuffer> swapChainFramebuffers;
+	VkCommandPool commandPool;
+	std::vector<VkCommandBuffer> commandBuffers;
+	VkSemaphore imageAvailableSemaphore;
+	VkSemaphore renderFinishedSemaphore;
 
 public:
 	void run ();
@@ -77,6 +83,7 @@ private:
 	void initVulkan ();
 	void mainLoop ();
 	void cleanup ();
+	void drawFrame ();
 
 	/* VK methods */
 	void createInstance ();
@@ -89,6 +96,10 @@ private:
 	void createImageViews ();
 	void createGraphicsPipeline ();
 	void createRenderPass ();
+	void createFramebuffers ();
+	void createCommandPool ();
+	void createCommandBuffers ();
+    void createSemaphores ();
 
 	/* VK validation layers methods */
 	std::vector<const char *> getRequiredExtensions ();
