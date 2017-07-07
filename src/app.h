@@ -13,6 +13,9 @@
 #include <set>
 #include <algorithm>
 #include <fstream>
+#include <array>
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
 
 const int WIDTH = 800;
 const int HEIGHT = 600;
@@ -48,6 +51,48 @@ struct SwapChainSupportDetails
     std::vector<VkPresentModeKHR> presentModes;
 };
 
+struct Vertex
+{
+    glm::vec2 pos;
+    glm::vec3 color;
+
+	static VkVertexInputBindingDescription getBindingDescription()
+	{
+        VkVertexInputBindingDescription bindingDescription = {};
+		bindingDescription.binding = 0;
+		bindingDescription.stride = sizeof(Vertex);
+		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        return bindingDescription;
+    }
+
+	static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions()
+	{
+	    std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions = {};
+		attributeDescriptions[0].binding = 0;
+		attributeDescriptions[0].location = 0;
+		attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+		attributeDescriptions[0].offset = offsetof(Vertex, pos);
+
+		attributeDescriptions[1].binding = 0;
+		attributeDescriptions[1].location = 1;
+		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[1].offset = offsetof(Vertex, color);
+
+	    return attributeDescriptions;
+	}
+};
+
+const std::vector<Vertex> vertices = {
+    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+
+	{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}},
+    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+};
+
 class App
 {
 private:
@@ -72,6 +117,8 @@ private:
 	std::vector<VkCommandBuffer> commandBuffers;
 	VkSemaphore imageAvailableSemaphore;
 	VkSemaphore renderFinishedSemaphore;
+	VkBuffer vertexBuffer;
+	VkDeviceMemory vertexBufferMemory;
 
 	inline static void onWindowResized (GLFWwindow *window, int width, int height)
 	{
@@ -106,9 +153,12 @@ private:
 	void createCommandPool ();
 	void createCommandBuffers ();
     void createSemaphores ();
+	void createVertexBuffer ();
 
 	void cleanupSwapChain ();
 	void recreateSwapChain ();
+
+	uint32_t findMemoryType (uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
 	/* VK validation layers methods */
 	std::vector<const char *> getRequiredExtensions ();

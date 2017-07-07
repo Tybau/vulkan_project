@@ -24,8 +24,8 @@ bin:
 bin/%.o: src/%.cpp
 	$(CC) $(CXXFLAGS) -c $^ -o $@ $(INCLUDES)
 
-test: all
-	LD_LIBRARY_PATH=$(VULKAN_SDK_PATH)/lib VK_LAYER_PATH=$(VULKAN_SDK_PATH)/etc/explicit_layer.d ./VulkanTest
+test: re
+	./vk_project
 
 clean:
 	rm -rf bin
